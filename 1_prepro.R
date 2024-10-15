@@ -23,7 +23,7 @@ library(stringr)
 
 
 # Creación de la ruta relativa de los archivos
-ruta_proyecto <- here("OneDrive/Documents/Proyectos/Vinchucas/Datos")
+ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos"
 ruta_datos <- file.path(ruta_proyecto)
 
 # Importar espectros

@@ -21,12 +21,13 @@ library(cluster)
 library(factoextra)
 library(ggplot2)
 library(gridExtra)
+library(ggrepel)
 
 ### CARGA DE ARCHIVOS ##########################################################
 ################################################################################
 
 # Creación de la ruta relativa de los archivos
-ruta_proyecto <- here("OneDrive/Documents/Proyectos/Vinchucas")
+ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas"
 ruta_datos <- file.path(ruta_proyecto)
 
 # Load the Rdata files using the relative path
@@ -69,8 +70,9 @@ for (i in 1:244) {
 top.b5 <- br[1:5]  ## primeros 5 picos
 top.b10 <- br[1:10]  ## primeros 10 picos
 top.b15 <- br[1:15]  ## primeros 15 picos
-top.b20 <- br[1:20]  ## primeros 20 picos 
-top_actual <- top.b20
+top.b20 <- br[1:20]  ## primeros 20 picos
+top.b30 <- br[1:30]  ## primeros 30 picos 
+top_actual <- top.b30
 
 # Elección de mejores algoritmos de clustering
 comparacion <- clValid(
@@ -86,29 +88,67 @@ optimalScores(comparacion) #Se puede ir probando con distintos top picos
 ### ALGORITMO DE CLUSTERING ####################################################
 ################################################################################
 
-# HKMEANS clustering con top20 y 2 clusters
+# HKMEANS clustering con top5 y 2 clusters
 
-top_actual <- top.b20
+top_actual <- top.b5
 K.num <- 2 # clusters
 var2 = 0.95
 
-hkm.res20 <- hkmeans(matint_19_ind_dico[, top_actual], 
-                   K.num)
+hkm.res20 <- hkmeans(matint_19_ind[, top_actual], 
+                     K.num)
 
-cluster_hkmean20 <- fviz_cluster(hkm.res20, ellipse.type = "convex", 
-                                data = matint_19_ind_dico[, top_actual],
-                                ellipse.level = var2,
-                                show.clust.cent = F, 
-                                geom = "point", main = "INF VS NO INF - hkmeans - Top 20 - 2 cluster")
+# Recalcular el clustering y el gráfico con elipse
+cluster_hkmean20 <- fviz_cluster(hkm.res20, 
+                                 ellipse.type = "convex",  # Cambiar a "norm" o "t" para ver la elipse
+                                 data = matint_19_ind_dico[, top_actual],
+                                 ellipse.level = var2, # Nivel de confianza de la elipse
+                                 show.clust.cent = FALSE,  # Mostrar el centroide de los clusters
+                                 geom = "point",
+                                 pointsize = 2,
+                                 main = "INF VS NO INF - hkmeans - Top 5 - 2 clusters")
 
-# Personalización del ploteo
+# Personalización del gráfico
 cluster_hkmean20 <- cluster_hkmean20 + 
   geom_point(data = cluster_hkmean20$data, 
              aes(x = x, y = y, color = factor_tipo)) +
-  scale_color_manual(values = c("maroon","steelblue4","steelblue4", "maroon" )) +
+  scale_color_manual(values = c("maroon","steelblue4","maroon","steelblue4","maroon","steelblue4" )) +
   scale_size_continuous(range = c(2, 4)) + 
   labs(color = "Cluster", size = "Sexo") +
   theme(legend.position = "right")
 
-# Muestra el gráfico
+# Mostrar el gráfico actualizado con elipse
 print(cluster_hkmean20)
+
+
+### PCA para el biplot #########################################################
+################################################################################
+
+# Realizar PCA para obtener los componentes principales
+pca_res <- prcomp(matint_19_ind[, top_actual], center = TRUE, scale. = TRUE)
+
+# Obtener las coordenadas de los vectores (las variables)
+var_coords <- pca_res$rotation[, 1:2]  # Coordenadas de las variables en los dos primeros PCs
+var_names <- rownames(var_coords)  # Nombres de las variables
+
+# Escalar las coordenadas de los vectores (para reducir la longitud de los vectores)
+scale_factor <- 0.6  # Ajustar este factor para reducir más o menos el tamaño de los vectores
+var_coords_scaled <- var_coords * scale_factor
+
+# Agregar los vectores y sus etiquetas ajustadas al gráfico de clustering
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_segment(data = as.data.frame(var_coords_scaled), 
+               aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(length = unit(0.2, "cm")), color = "blue") +
+  geom_text_repel(data = as.data.frame(var_coords_scaled), 
+                  aes(x = PC1, y = PC2, label = var_names), 
+                  color = "blue", 
+                  size = 3,          # Tamaño de las etiquetas de los vectores
+                  box.padding = 0.35, # Aumentar separación entre etiquetas
+                  point.padding = 0.3, 
+                  segment.size = 0.2)
+
+# Mostrar el gráfico con los vectores ajustados
+print(cluster_hkmean20)
+
+# Guardar el subconjunto como CSV
+write.csv(matint_19_ind[, top_actual], "matint_19_top5.csv", row.names = TRUE) # OJO CORREGIR UBICACION
