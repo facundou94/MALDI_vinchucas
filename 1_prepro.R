@@ -300,3 +300,42 @@ write.csv(df_metadata_prom_rep, "df_80.csv", row.names = TRUE)
 #
 ### FIN ########################################################################
 ################################################################################
+
+##### ANEXO: GRAFICO DE PICOS PREPONDERANTES ###################################
+
+
+# Graficar el primer espectro
+plot(Spectra_list_prom_muestra[[1]]@mass, Spectra_list_prom_muestra[[1]]@intensity, type = "l", col = "black", 
+     xlab = "Mass/Charge (m/z)", ylab = "Intensity", main = "Spectra with Highlighted Positions")
+
+# Graficar los demás espectros (si hay varios)
+for (i in 1:9) {
+  # Extraer los datos de masa y de intensidad
+  mass <- Spectra_list_prom_muestra[[i]]@mass
+  intensity <- Spectra_list_prom_muestra[[i]]@intensity
+  
+  # Dibujar el espectro
+  lines(mass, intensity, col = "black")
+  
+  # Resaltar puntos específicos
+  points(mass[highlight_indices[1:2]], intensity[highlight_indices[1:2]], col = "blue", pch = 19)
+  points(mass[highlight_indices[3:5]], intensity[highlight_indices[3:5]], col = "red", pch = 19)
+}
+
+# Graficar el primer espectro
+plot(Spectra_list_prom_muestra[[1]]@mass, Spectra_list_prom_muestra[[1]]@intensity, type = "l", col = "black", 
+     xlab = "Mass/Charge (m/z)", ylab = "Intensity", main = "Spectra with Highlighted Positions")
+
+# Graficar los demás espectros (si hay varios)
+for (i in 9:19) {
+  # Extraer los datos de masa y de intensidad
+  mass <- Spectra_list_prom_muestra[[i]]@mass
+  intensity <- Spectra_list_prom_muestra[[i]]@intensity
+  
+  # Dibujar el espectro
+  lines(mass, intensity, col = "black")
+  
+  # Resaltar puntos específicos
+  points(mass[highlight_indices[1:2]], intensity[highlight_indices[1:2]], col = "blue", pch = 19)
+  points(mass[highlight_indices[3:5]], intensity[highlight_indices[3:5]], col = "red", pch = 19)
+}
