@@ -23,7 +23,8 @@ library(stringr)
 
 
 # Creación de la ruta relativa de los archivos
-ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos"
+#ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos"
+ruta_proyecto <- "C:/Users/Facundo/Documents/Proyectos/MALDI_Vinchucas/Datos"
 ruta_datos <- file.path(ruta_proyecto)
 
 # Importar espectros
@@ -303,39 +304,57 @@ write.csv(df_metadata_prom_rep, "df_80.csv", row.names = TRUE)
 
 ##### ANEXO: GRAFICO DE PICOS PREPONDERANTES ###################################
 
+# Cargar librería necesaria
+library(scales)  # Para agregar transparencia a los colores
 
-# Graficar el primer espectro
-plot(Spectra_list_prom_muestra[[1]]@mass, Spectra_list_prom_muestra[[1]]@intensity, type = "l", col = "black", 
-     xlab = "Mass/Charge (m/z)", ylab = "Intensity", main = "Spectra with Highlighted Positions")
+# Definir los puntos de referencia y tolerancia
+highlight_positions <- c(2152, 3466, 5443, 8491, 6283)
+tolerance <- 20
 
-# Graficar los demás espectros (si hay varios)
-for (i in 1:9) {
-  # Extraer los datos de masa y de intensidad
-  mass <- Spectra_list_prom_muestra[[i]]@mass
-  intensity <- Spectra_list_prom_muestra[[i]]@intensity
+# Definir los límites del eje x
+x_lim <- c(2000, 10000)
+
+# Definir los colores con transparencia (50% de opacidad)
+colors <- c(alpha("blue", 0.3), alpha("blue", 0.3), alpha("red", 0.3), alpha("red", 0.3), alpha("red", 0.3))
+
+# Ajustar la cantidad de espectros por gráfico
+spectra_per_plot <- 3
+total_spectra <- length(Spectra_list_prom_muestra)
+
+# Calcular el número de gráficos necesarios
+num_plots <- ceiling(total_spectra / spectra_per_plot)
+
+# Loop para generar los gráficos
+for (plot_idx in 1:num_plots) {
   
-  # Dibujar el espectro
-  lines(mass, intensity, col = "black")
+  # Definir los índices de los espectros que van en este gráfico
+  start_idx <- (plot_idx - 1) * spectra_per_plot + 1
+  end_idx <- min(plot_idx * spectra_per_plot, total_spectra)
   
-  # Resaltar puntos específicos
-  points(mass[highlight_indices[1:2]], intensity[highlight_indices[1:2]], col = "blue", pch = 19)
-  points(mass[highlight_indices[3:5]], intensity[highlight_indices[3:5]], col = "red", pch = 19)
+  # Configurar un layout de 3 filas y 1 columna (3 subplots por gráfico)
+  par(mfrow=c(spectra_per_plot, 1), mar=c(4, 4, 2, 2))  # Márgenes ajustados
+  
+  # Graficar cada espectro en el rango de este gráfico
+  for (i in start_idx:end_idx) {
+    mass <- Spectra_list_prom_muestra[[i]]@mass
+    intensity <- Spectra_list_prom_muestra[[i]]@intensity
+    
+    # Graficar el espectro individual
+    plot(mass, intensity, type = "l", col = "black",
+         xlab = "Mass/Charge (m/z)", ylab = "Intensity",
+         main = paste("Espectro del individuo", i, "con regiones de interés"),
+         xlim = x_lim)
+    
+    # Dibujar las barras semitransparentes con tolerancia
+    for (j in 1:length(highlight_positions)) {
+      rect(highlight_positions[j] - tolerance, par("usr")[3],
+           highlight_positions[j] + tolerance, par("usr")[4],
+           col = colors[j], border = NA)
+    }
+    
+    # Dibujar el espectro encima para que la barra quede de fondo
+    lines(mass, intensity, col = "black")
+  }
+
 }
 
-# Graficar el primer espectro
-plot(Spectra_list_prom_muestra[[1]]@mass, Spectra_list_prom_muestra[[1]]@intensity, type = "l", col = "black", 
-     xlab = "Mass/Charge (m/z)", ylab = "Intensity", main = "Spectra with Highlighted Positions")
-
-# Graficar los demás espectros (si hay varios)
-for (i in 9:19) {
-  # Extraer los datos de masa y de intensidad
-  mass <- Spectra_list_prom_muestra[[i]]@mass
-  intensity <- Spectra_list_prom_muestra[[i]]@intensity
-  
-  # Dibujar el espectro
-  lines(mass, intensity, col = "black")
-  
-  # Resaltar puntos específicos
-  points(mass[highlight_indices[1:2]], intensity[highlight_indices[1:2]], col = "blue", pch = 19)
-  points(mass[highlight_indices[3:5]], intensity[highlight_indices[3:5]], col = "red", pch = 19)
-}
