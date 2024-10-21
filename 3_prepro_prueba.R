@@ -22,8 +22,8 @@ library(stringr)
 
 
 # Creación de la ruta relativa de los archivos
-#ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos"
-ruta_proyecto <- "C:/Users/Facundo/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
+ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
+#ruta_proyecto <- "C:/Users/Facundo/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
 ruta_datos <- file.path(ruta_proyecto)
 
 # Importar espectros
@@ -63,11 +63,11 @@ for(i in 1:length(Spectra_list)) {
     sexo <- "Hembra"
     
     # Extrae la parte restante del nombre después del estado
-    resultado <- substr(nombre, (posicion_h+2), nchar(nombre))
+    resultado <- substr(nombre, (posicion_h-6), nchar(nombre))
     
     # Usa expresiones regulares para extraer los datos:
     # Ejemplo: "Vinchuca 1 hembra 23-05-24\\0_A1\\1\\1SLin\\fid"
-    numero_vinchuca <- str_extract(resultado, "Hembra [0-9]+") %>% str_extract("[0-9]+")
+    numero_vinchuca <- str_extract(resultado, "Hembra_[0-9]+") %>% str_extract("[0-9]+")
     estado <- "infectado"
     replica_muestra <- str_extract(resultado, "[A-Z][0-9]+")
     replica_tecnica <- str_extract(resultado, "\\\\[0-9]+\\\\1SLin") %>% str_extract("[0-9]+")
@@ -78,11 +78,11 @@ for(i in 1:length(Spectra_list)) {
     sexo <- "Macho"
     
     # Extrae la parte restante del nombre después del estado
-    resultado <- substr(nombre, (posicion_m+2), nchar(nombre))
+    resultado <- substr(nombre, (posicion_m-5), nchar(nombre))
     
     # Usa expresiones regulares para extraer los datos:
     # Ejemplo: "Vinchuca 1 hembra 23-05-24\\0_A1\\1\\1SLin\\fid"
-    numero_vinchuca <- str_extract(resultado, "Macho [0-9]+") %>% str_extract("[0-9]+")
+    numero_vinchuca <- str_extract(resultado, "Macho_[0-9]+") %>% str_extract("[0-9]+")
     estado <- "infectado"
     replica_muestra <- str_extract(resultado, "[A-Z][0-9]+")
     replica_tecnica <- str_extract(resultado, "\\\\[0-9]+\\\\1SLin") %>% str_extract("[0-9]+")
@@ -125,11 +125,14 @@ sc.results <- screenSpectra(Spectra_list, meta = df_metadata)
 summary(sc.results)
 plot(sc.results, labels = TRUE)
 
-# plot(Spectra_list[[253]]) # Ploteo de espectros ruidosos
+#plot(Spectra_list[[10]]) # Ploteo de espectros ruidosos
 
 # Descartamos espectros defectuosos 
-Spectra_list_f1 <- sc.results$fspectra # Filtramos espectros
-df_metadata_f1 <- sc.results$fmeta # Filtramos metadatos
+# Spectra_list_f1 <- sc.results$fspectra # Filtramos espectros
+# df_metadata_f1 <- sc.results$fmeta # Filtramos metadatos
+Spectra_list_f1 <- Spectra_list
+df_metadata_f1 <- df_metadata
+# No lo hacemos, debido a que son de la vinchuca de campo
 
 ### FILTRADO Y TRANSFORMACIÓN DE ESPECTROS #####################################
 ################################################################################
@@ -144,29 +147,29 @@ tol <- 0.03 # Peak binning
 # Transformación/filtrado/corrección de espectros con parámetros definidos
 # 1) Transformación de intensidad por medio de función sqrt
 Spectra_list_f1 <- transfIntensity(Spectra_list_f1, fun = sqrt)
-plot(Spectra_list_f1[[30]])
+plot(Spectra_list_f1[[6]])
 # 2) Suavizado del espectro mediante el método Wavelet
 Spectra_list_f1 <- wavSmoothing(Spectra_list_f1, method = "Wavelet", n.levels = 4)
-plot(Spectra_list_f1[[30]])
+plot(Spectra_list_f1[[6]])
 # Detección de la linea de base
-baseline <- estimateBaseline(Spectra_list_f1[[30]], method = "SNIP",
+baseline <- estimateBaseline(Spectra_list_f1[[6]], method = "SNIP",
                              iterations = ite)
-plot(Spectra_list_f1[[30]])
+plot(Spectra_list_f1[[6]])
 lines(baseline, col="red", lwd=2)
 # 3) Remoción de linea de base mediante método SNIP
 Spectra_list_f2 <- removeBaseline(Spectra_list_f1, method = "SNIP", 
                                   iterations = ite)
-plot(Spectra_list_f2[[30]])
+plot(Spectra_list_f2[[6]])
 # 4) Calibración de intensidad mediante método PQN
 Spectra_list_f2 <- calibrateIntensity(Spectra_list_f2, method = "PQN")
-plot(Spectra_list_f2[[30]])
+plot(Spectra_list_f2[[6]])
 # 5) Alineación de espectros
 Spectra_list_f3 <- alignSpectra(Spectra_list_f2,
                                 halfWindowSize=20,
                                 SNR=2,
                                 tolerance=0.02, # Parámetro sensible
                                 warpingMethod="lowess")
-plot(Spectra_list_f3[[30]])
+plot(Spectra_list_f3[[6]])
 
 
 ### PROMEDIO DE LECTURAS DE UNA MISMA RÉPLICA TÉCNICA #################
@@ -190,3 +193,96 @@ Spectra_list_prom_muestra <- averageMassSpectra(Spectra_list_prom_rep,
 # Creo la nueva metadata de los espectros promediados
 df_metadata_prom_mue <- df_metadata_prom_rep %>% 
   distinct(factor_num, .keep_all = TRUE)
+
+### EXTRACCIÓN DE PICOS Y ALINEACIÓN ###########################################
+################################################################################
+
+# A partir de acá probamos trabajar con Spectra_list_prom_rep
+
+# Análisis de la SNR en espectros para chequear que utilizamos el valor correcto
+noise <- estimateNoise(Spectra_list_prom_rep[[20]])
+plot(Spectra_list_prom_rep[[20]], xlim=c(4000, 20000), ylim=c(0, 0.002))
+lines(noise, col="red")
+lines(noise[,1], noise[, 2]*2, col="blue") # Se ve que es correcto el 2
+
+# Detección de picos a partir del umbral definido de SNR
+peaks <- detectPeaks(Spectra_list_prom_rep, 
+                     SNR = SigNoi, 
+                     halfWindowSize = 40)
+
+# Ploteo de picos detectados en un espectro de ejemplo
+plot(Spectra_list_prom_rep[[20]], xlim=c(4000, 20000), ylim=c(0, 0.002))
+points(peaks[[20]], col="red", pch=4)
+
+# Alineado de picos
+peaks <- alignPeaks(peaks, 
+                    minFreq = 0.8, 
+                    tolerance = tol)
+
+#summaryPeaks(peaks[1:10])  # resumen estadistico de picos (primeros 10)
+
+# Conteo de picos por perfil
+cP <- countPeaks(peaks)
+
+# Gráfico de picos
+plot(cP, type = "n")
+text(cP, label = 1:length(cP))
+
+
+# Patrones de picos
+peakPatterns(peaks)
+
+# Filtrado de picos de baja frecuencia de aparición
+picos_filtrados <- filterPeaks(peaks, 
+                               minFreq = 0.25, 
+                               labels = df_metadata_prom_rep$factor_num ) #labels
+
+# Patrones de picos
+peakPatterns(picos_filtrados)
+
+# Conteo de picos por perfil
+cP2 <- countPeaks(picos_filtrados)
+
+# Gráfico
+plot(cP2, type = "n")
+text(cP2, label = 1:length(cP2))
+
+# Fusión de picos de la misma muestra
+picos_fusion_muestra <- mergeMassPeaks(picos_filtrados, 
+                                       labels = df_metadata_prom_rep$factor_num, 
+                                       method = "median")
+
+# Patrones de picos
+peakPatterns(picos_fusion_muestra)
+
+### CREACIÓN DE MATRIZ DE INTENSIDADES Y DICOTÓMICA ############################
+################################################################################
+
+
+# Matriz de intensidades 19 individuos
+matint_9_inf <- intensityMatrix(picos_fusion_muestra, 
+                                 Spectra_list_prom_muestra) # sin valores NA
+
+### SELECCIÓN DE LOS PICOS RELEVANTES ##########################################
+################################################################################
+
+# Picos de interés
+picos <- c(2152, 3466, 5443, 8491, 6283)
+
+# Valores "mass" asociados a las columnas de la matriz de intensidades
+mass_values <- as.numeric(colnames(matint_9_inf))
+
+# Función para encontrar la columna con el valor "mass" más cercano a cada pico
+closest_columns <- sapply(picos, function(pico) {
+  # Calcular la diferencia absoluta entre los valores "mass" y el pico
+  diff <- abs(mass_values - pico)
+  
+  # Devolver el índice de la columna con el valor más cercano
+  which.min(diff)
+})
+
+# Seleccionar las columnas correspondientes
+matint_selected <- matint_9_inf[, closest_columns]
+
+# Guardar matrices y metadata asociada como archivo .Rdata
+save(matint_selected,df_metadata_prom_mue, file = "matint_9_inf.Rdata")

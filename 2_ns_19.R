@@ -150,5 +150,38 @@ cluster_hkmean20 <- cluster_hkmean20 +
 # Mostrar el gráfico con los vectores ajustados
 print(cluster_hkmean20)
 
+
+### LA HORA DE LA VERDAD. NUEVOS PICOS #########################################
+################################################################################
+
+# Load the Rdata files using the relative path
+load(file.path(ruta_datos, "matint_9_inf.Rdata"))
+
+# Renombrar las columnas de matint_9_inf con los nombres de los picos seleccionados
+colnames(matint_selected) <- var_names
+
+# Proyectar los datos de matint_9_inf en el espacio del PCA
+pca_coords_inf <- as.matrix(matint_selected) %*% pca_res$rotation[, 1:2]
+
+# Crear un data frame con las coordenadas proyectadas
+df_pca_inf <- data.frame(PC1 = pca_coords_inf[, 1], PC2 = pca_coords_inf[, 2])
+
+colnames(df_pca_inf) <- c("x", "y")
+
+# Agregar los nuevos puntos proyectados al gráfico del clustering
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_point(data = df_pca_inf, 
+             aes(x = x, y = y)
+             ,color = "green", size = 3, shape = 17)  # Puntos verdes y en forma de triángulo
+  
+
+# Mostrar el gráfico actualizado con los nuevos puntos proyectados
+print(cluster_hkmean20)
+
+# Graficar los puntos de df_pca_inf
+ggplot(df_pca_inf, aes(x = x, y = y)) +
+  geom_point(color = "green", size = 3, shape = 17) +
+  labs(title = "Proyección de matint_9_inf en el espacio PCA")
+
 # Guardar el subconjunto como CSV
-write.csv(matint_19_ind[, top_actual], "matint_19_top5.csv", row.names = TRUE) # OJO CORREGIR UBICACION
+# write.csv(matint_19_ind[, top_actual], "matint_19_top5.csv", row.names = TRUE) # OJO CORREGIR UBICACION
