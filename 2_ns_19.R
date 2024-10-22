@@ -123,6 +123,8 @@ print(cluster_hkmean20)
 ### PCA para el biplot #########################################################
 ################################################################################
 
+matint_19_top <- matint_19_ind[, top_actual]
+
 # Realizar PCA para obtener los componentes principales
 pca_res <- prcomp(matint_19_ind[, top_actual], center = TRUE, scale. = TRUE)
 
@@ -157,10 +159,13 @@ print(cluster_hkmean20)
 # Load the Rdata files using the relative path
 load(file.path(ruta_datos, "matint_9_inf.Rdata"))
 
+# PRUEBA
+
 # Renombrar las columnas de matint_9_inf con los nombres de los picos seleccionados
 colnames(matint_selected) <- var_names
 
 # Proyectar los datos de matint_9_inf en el espacio del PCA
+matint_selected_scaled <- scale(matint_selected, center = TRUE, scale = TRUE)
 pca_coords_inf <- as.matrix(matint_selected) %*% pca_res$rotation[, 1:2]
 
 # Crear un data frame con las coordenadas proyectadas

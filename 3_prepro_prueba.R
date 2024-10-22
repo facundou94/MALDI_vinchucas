@@ -112,7 +112,7 @@ for(i in 1:length(Spectra_list)) {
   # Creación de factores de agrupamiento para su uso posterior
   df_metadata$factor_num <- paste0(df_metadata$estado, "_", df_metadata$numero)
   df_metadata$factor_mue <- paste0(df_metadata$estado, "_", df_metadata$rep_m)
-  df_metadata$factor_sex <- paste0(df_metadata$estado, "_", df_metadata$sexo)
+  df_metadata$factor_sex <- paste0(df_metadata$sexo, "_", df_metadata$numero)
   
 }
 
@@ -187,12 +187,12 @@ df_metadata_prom_rep <- df_metadata_f1 %>%
 
 # Promedio de wells de una misma muestra
 Spectra_list_prom_muestra <- averageMassSpectra(Spectra_list_prom_rep,
-                                                labels = factor(df_metadata_prom_rep$factor_num), 
+                                                labels = factor(df_metadata_prom_rep$factor_sex), 
                                                 method = "mean")
 
 # Creo la nueva metadata de los espectros promediados
 df_metadata_prom_mue <- df_metadata_prom_rep %>% 
-  distinct(factor_num, .keep_all = TRUE)
+  distinct(factor_sex, .keep_all = TRUE)
 
 ### EXTRACCIÓN DE PICOS Y ALINEACIÓN ###########################################
 ################################################################################
@@ -235,7 +235,7 @@ peakPatterns(peaks)
 # Filtrado de picos de baja frecuencia de aparición
 picos_filtrados <- filterPeaks(peaks, 
                                minFreq = 0.25, 
-                               labels = df_metadata_prom_rep$factor_num ) #labels
+                               labels = df_metadata_prom_rep$factor_sex ) #labels
 
 # Patrones de picos
 peakPatterns(picos_filtrados)
@@ -249,7 +249,7 @@ text(cP2, label = 1:length(cP2))
 
 # Fusión de picos de la misma muestra
 picos_fusion_muestra <- mergeMassPeaks(picos_filtrados, 
-                                       labels = df_metadata_prom_rep$factor_num, 
+                                       labels = df_metadata_prom_rep$factor_sex, 
                                        method = "median")
 
 # Patrones de picos
