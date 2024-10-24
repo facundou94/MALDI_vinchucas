@@ -22,8 +22,8 @@ library(stringr)
 
 
 # Creación de la ruta relativa de los archivos
-ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
-#ruta_proyecto <- "C:/Users/Facundo/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
+#ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
+ruta_proyecto <- "C:/Users/Facundo/Documents/Proyectos/MALDI_Vinchucas/Datos_prueba"
 ruta_datos <- file.path(ruta_proyecto)
 
 # Importar espectros
@@ -49,6 +49,10 @@ col_rep_t <- c()
 patron_h <- "embra"
 patron_m <- "Macho"
 
+for(i in 1:length(Spectra_list)) {
+  print(Spectra_list[[i]]@metaData$file)
+}
+  
 # Ciclo que extrae dia, tipo, numero, well y réplica de cada muestra
 for(i in 1:length(Spectra_list)) {
   nombre <- Spectra_list[[i]]@metaData$file
@@ -284,5 +288,6 @@ closest_columns <- sapply(picos, function(pico) {
 # Seleccionar las columnas correspondientes
 matint_selected <- matint_9_inf[, closest_columns]
 
+df_metadata_ultimas <- df_metadata_prom_mue
 # Guardar matrices y metadata asociada como archivo .Rdata
-save(matint_selected,df_metadata_prom_mue, file = "matint_9_inf.Rdata")
+save(matint_selected,df_metadata_ultimas, file = "matint_9_inf.Rdata")

@@ -27,7 +27,8 @@ library(ggrepel)
 ################################################################################
 
 # Creación de la ruta relativa de los archivos
-ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas"
+#ruta_proyecto <- "C:/Users/urtea/OneDrive/Documents/Proyectos/MALDI_Vinchucas"
+ruta_proyecto <- "C:/Users/Facundo/Documents/Proyectos/MALDI_Vinchucas"
 ruta_datos <- file.path(ruta_proyecto)
 
 # Load the Rdata files using the relative path
@@ -100,7 +101,7 @@ hkm.res20 <- hkmeans(matint_19_ind[, top_actual],
 # Recalcular el clustering y el gráfico con elipse
 cluster_hkmean20 <- fviz_cluster(hkm.res20, 
                                  ellipse.type = "convex",  # Cambiar a "norm" o "t" para ver la elipse
-                                 data = matint_19_ind_dico[, top_actual],
+                                 data = matint_19_ind[, top_actual],
                                  ellipse.level = var2, # Nivel de confianza de la elipse
                                  show.clust.cent = FALSE,  # Mostrar el centroide de los clusters
                                  geom = "point",
@@ -153,40 +154,301 @@ cluster_hkmean20 <- cluster_hkmean20 +
 print(cluster_hkmean20)
 
 
-### LA HORA DE LA VERDAD. NUEVOS PICOS #########################################
+### PRUEBA CON NUEVOS PICOS ####################################################
 ################################################################################
 
 # Load the Rdata files using the relative path
 load(file.path(ruta_datos, "matint_9_inf.Rdata"))
 
-# PRUEBA
 
 # Renombrar las columnas de matint_9_inf con los nombres de los picos seleccionados
 colnames(matint_selected) <- var_names
 
-# Proyectar los datos de matint_9_inf en el espacio del PCA
-matint_selected_scaled <- scale(matint_selected, center = TRUE, scale = TRUE)
-pca_coords_inf <- as.matrix(matint_selected) %*% pca_res$rotation[, 1:2]
 
-# Crear un data frame con las coordenadas proyectadas
-df_pca_inf <- data.frame(PC1 = pca_coords_inf[, 1], PC2 = pca_coords_inf[, 2])
+####### PRUEBA 1) REALIZO NUEVO PCA CON PRIMEROS VALORES, Y LUEGO AGREGO PUNTOS
 
-colnames(df_pca_inf) <- c("x", "y")
 
-# Agregar los nuevos puntos proyectados al gráfico del clustering
+# Cargar librerías necesarias
+library(ggplot2)
+library(ggrepel)
+
+# Realizar el PCA sobre matint_19_top
+pca_res <- prcomp(matint_19_top, center = TRUE, scale. = TRUE)
+
+# Obtener las coordenadas de las muestras en los dos primeros componentes principales
+pca_coords <- as.data.frame(pca_res$x[, 1:2])
+
+# Agregar la metadata sobre el estado de infección
+pca_coords$estado <- df_metadata_prom_mue$estado  # Asumiendo que df_metadata_prom_mue$estado tiene el mismo orden
+
+# Graficar los puntos del PCA coloreados por estado de infección
+pca_plot <- ggplot(pca_coords, aes(x = PC1, y = PC2, color = estado)) +
+  geom_point(size = 3) +
+  labs(title = "PCA de matint_19_top", x = "PC1", y = "PC2") +
+  theme_minimal()
+
+# Mostrar el gráfico inicial
+print(pca_plot)
+
+# Obtener las medias y desviaciones estándar de matint_19_top
+medias <- colMeans(matint_19_top)
+desviaciones <- apply(matint_19_top, 2, sd)
+
+# Centrar y escalar matint_selected usando las mismas medias y desviaciones
+matint_selected_scaled <- sweep(matint_selected, 2, medias, "-")
+matint_selected_scaled <- sweep(matint_selected_scaled, 2, desviaciones, "/")
+
+# Proyectar los nuevos datos escalados en el espacio del PCA
+pca_coords_selected <- as.data.frame(as.matrix(matint_selected_scaled) %*% pca_res$rotation[, 1:2])
+
+# Añadir una columna indicando que estos son los nuevos puntos
+pca_coords_selected$estado <- "Nuevo"
+
+# Cambiar los nombres de las columnas para que coincidan con el formato del PCA original
+colnames(pca_coords_selected) <- c("PC1", "PC2", "estado")
+
+# Unir las coordenadas originales con las nuevas
+pca_coords_combined <- rbind(pca_coords, pca_coords_selected)
+
+# Graficar las muestras originales y los nuevos puntos
+pca_plot_final <- ggplot(pca_coords_combined, aes(x = PC1, y = PC2, color = estado)) +
+  geom_point(size = 3) +
+  labs(title = "PCA de matint_19_top con nuevos puntos", x = "PC1", y = "PC2") +
+  scale_color_manual(values = c("red", "blue", "green")) +  # Colores para infectados, no infectados y nuevos puntos
+  theme_minimal()
+
+# Mostrar el gráfico final con los nuevos puntos
+print(pca_plot_final)
+
+
+####### PRUEBA 2) REALIZO EL NUEVO HKAMEANS CON TODOS LOS VALORES
+
+
+# Combinar matint_19_top y matint_selected sin escalar
+matint_combined <- rbind(matint_19_top, matint_selected)
+
+# Cambiar "infectado" a "infectado_nuevas" en la columna 'estado' de df_metadata_ultimas
+df_metadata_ultimas$estado[df_metadata_ultimas$estado == "infectado"] <- "infectado_nuevas"
+
+# Combinar ambos dataframes
+df_metadata_combined <- rbind(df_metadata_prom_mue, df_metadata_ultimas)
+
+df_metadata_combined$factor_nuevo <- paste0(df_metadata_combined$estado, "_", df_metadata_combined$numero)
+
+# Selección de picos para binary discriminant analysis (BDA)
+factor_tipo2 <- factor(df_metadata_combined$estado)
+
+# Renombrar las columnas de matint_9_inf con los nombres de los picos seleccionados
+rownames(matint_combined) <- df_metadata_combined$factor_nuevo
+
+
+# HKMEANS clustering con top5 y 2 clusters
+
+top_actual <- top.b5
+K.num <- 2 # clusters
+var2 = 0.95
+
+# Realizar el clustering sobre la matriz combinada
+hkm_res_combined <- hkmeans(matint_combined, K.num)
+
+# Recalcular el clustering y el gráfico con elipse
+cluster_hkmean20 <- fviz_cluster(hkm_res_combined,
+                                 ellipse.type = "convex",  # Cambiar a "norm" o "t" para ver la elipse
+                                 data = matint_combined,
+                                 ellipse.level = var2, # Nivel de confianza de la elipse
+                                 show.clust.cent = FALSE,  # Mostrar el centroide de los clusters
+                                 geom = "point",
+                                 pointsize = 2,
+                                 main = "INF VS NO INF - hkmeans - Top 5 - 2 clusters")
+
+# Personalización del gráfico
 cluster_hkmean20 <- cluster_hkmean20 +
-  geom_point(data = df_pca_inf, 
-             aes(x = x, y = y)
-             ,color = "green", size = 3, shape = 17)  # Puntos verdes y en forma de triángulo
-  
+  geom_point(data = cluster_hkmean20$data,
+             aes(x = x, y = y, color = df_metadata_combined$estado)) +
+  scale_color_manual(values = c("grey","grey","maroon","green4","yellow4" )) +
+  scale_size_continuous(range = c(2, 4)) +
+  labs(color = "Cluster", size = "Sexo") +
+  theme(legend.position = "right")
 
-# Mostrar el gráfico actualizado con los nuevos puntos proyectados
+# Mostrar el gráfico actualizado con elipse
 print(cluster_hkmean20)
 
-# Graficar los puntos de df_pca_inf
-ggplot(df_pca_inf, aes(x = x, y = y)) +
-  geom_point(color = "green", size = 3, shape = 17) +
-  labs(title = "Proyección de matint_9_inf en el espacio PCA")
+### PCA para el biplot #########################################################
+################################################################################
 
-# Guardar el subconjunto como CSV
-# write.csv(matint_19_ind[, top_actual], "matint_19_top5.csv", row.names = TRUE) # OJO CORREGIR UBICACION
+# Realizar PCA para obtener los componentes principales
+pca_res <- prcomp(matint_combined, center = TRUE, scale. = TRUE)
+
+# Obtener las coordenadas de los vectores (las variables)
+var_coords <- pca_res$rotation[, 1:2]  # Coordenadas de las variables en los dos primeros PCs
+var_names <- rownames(var_coords)  # Nombres de las variables
+
+# Escalar las coordenadas de los vectores (para reducir la longitud de los vectores)
+scale_factor <- 0.6  # Ajustar este factor para reducir más o menos el tamaño de los vectores
+var_coords_scaled <- var_coords * scale_factor
+
+# Agregar los vectores y sus etiquetas ajustadas al gráfico de clustering
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_segment(data = as.data.frame(var_coords_scaled), 
+               aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(length = unit(0.2, "cm")), color = "blue") +
+  geom_text_repel(data = as.data.frame(var_coords_scaled), 
+                  aes(x = PC1, y = PC2, label = var_names), 
+                  color = "blue", 
+                  size = 3,          # Tamaño de las etiquetas de los vectores
+                  box.padding = 0.35, # Aumentar separación entre etiquetas
+                  point.padding = 0.3, 
+                  segment.size = 0.2)
+
+# Mostrar el gráfico con los vectores ajustados
+print(cluster_hkmean20)
+# 
+# 
+
+### PRUEBO LO MISMO SIN EL PICO DE 8MIL ########################################
+################################################################################
+
+matint_combined <- matint_combined[, 1:4]
+# HKMEANS clustering con top5 y 2 clusters
+
+top_actual <- top.b5
+K.num <- 2 # clusters
+var2 = 0.95
+
+# Realizar el clustering sobre la matriz combinada
+hkm_res_combined <- hkmeans(matint_combined, K.num)
+
+# Recalcular el clustering y el gráfico con elipse
+cluster_hkmean20 <- fviz_cluster(hkm_res_combined,
+                                 ellipse.type = "convex",  # Cambiar a "norm" o "t" para ver la elipse
+                                 data = matint_combined,
+                                 ellipse.level = var2, # Nivel de confianza de la elipse
+                                 show.clust.cent = FALSE,  # Mostrar el centroide de los clusters
+                                 geom = "point",
+                                 pointsize = 2,
+                                 main = "INF VS NO INF - hkmeans - Top 5 - 2 clusters")
+
+# Personalización del gráfico
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_point(data = cluster_hkmean20$data,
+             aes(x = x, y = y, color = df_metadata_combined$estado)) +
+  scale_color_manual(values = c("grey","grey","maroon","green4","yellow4" )) +
+  scale_size_continuous(range = c(2, 4)) +
+  labs(color = "Cluster", size = "Sexo") +
+  theme(legend.position = "right")
+
+# Mostrar el gráfico actualizado con elipse
+print(cluster_hkmean20)
+
+### PCA para el biplot #########################################################
+################################################################################
+
+# Realizar PCA para obtener los componentes principales
+pca_res <- prcomp(matint_combined, center = TRUE, scale. = TRUE)
+
+# Obtener las coordenadas de los vectores (las variables)
+var_coords <- pca_res$rotation[, 1:2]  # Coordenadas de las variables en los dos primeros PCs
+var_names <- rownames(var_coords)  # Nombres de las variables
+
+# Escalar las coordenadas de los vectores (para reducir la longitud de los vectores)
+scale_factor <- 0.6  # Ajustar este factor para reducir más o menos el tamaño de los vectores
+var_coords_scaled <- var_coords * scale_factor
+
+# Agregar los vectores y sus etiquetas ajustadas al gráfico de clustering
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_segment(data = as.data.frame(var_coords_scaled), 
+               aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(length = unit(0.2, "cm")), color = "blue") +
+  geom_text_repel(data = as.data.frame(var_coords_scaled), 
+                  aes(x = PC1, y = PC2, label = var_names), 
+                  color = "blue", 
+                  size = 3,          # Tamaño de las etiquetas de los vectores
+                  box.padding = 0.35, # Aumentar separación entre etiquetas
+                  point.padding = 0.3, 
+                  segment.size = 0.2)
+
+# Mostrar el gráfico con los vectores ajustados
+print(cluster_hkmean20)
+
+# Agregar etiquetas a los puntos de las muestras
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_text_repel(data = cluster_hkmean20$data, 
+                  aes(x = x, y = y, label = df_metadata_combined$sexo), 
+                  color = "black", 
+                  size = 3,          # Tamaño de las etiquetas
+                  box.padding = 0.35, # Aumentar separación entre etiquetas
+                  point.padding = 0.3, 
+                  segment.size = 0.2)
+
+# Mostrar el gráfico con los nombres de las muestras
+print(cluster_hkmean20)
+
+### PRUEBO LO MISMO SIN EL PICO DE 8MIL y el de 3MIL ###########################
+################################################################################
+
+matint_combined <- matint_combined[, -2]
+# HKMEANS clustering con top5 y 2 clusters
+
+top_actual <- top.b5
+K.num <- 2 # clusters
+var2 = 0.95
+
+# Realizar el clustering sobre la matriz combinada
+hkm_res_combined <- hkmeans(matint_combined, K.num)
+
+# Recalcular el clustering y el gráfico con elipse
+cluster_hkmean20 <- fviz_cluster(hkm_res_combined,
+                                 ellipse.type = "convex",  # Cambiar a "norm" o "t" para ver la elipse
+                                 data = matint_combined,
+                                 ellipse.level = var2, # Nivel de confianza de la elipse
+                                 show.clust.cent = FALSE,  # Mostrar el centroide de los clusters
+                                 geom = "point",
+                                 pointsize = 2,
+                                 main = "INF VS NO INF - hkmeans - Top 5 - 2 clusters")
+
+# Personalización del gráfico
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_point(data = cluster_hkmean20$data,
+             aes(x = x, y = y, color = df_metadata_combined$estado)) +
+  scale_color_manual(values = c("grey","grey","maroon","green4","yellow4" )) +
+  scale_size_continuous(range = c(2, 4)) +
+  labs(color = "Cluster", size = "Sexo") +
+  theme(legend.position = "right")
+
+# Mostrar el gráfico actualizado con elipse
+print(cluster_hkmean20)
+
+### PCA para el biplot #########################################################
+################################################################################
+
+# Realizar PCA para obtener los componentes principales
+pca_res <- prcomp(matint_combined, center = TRUE, scale. = TRUE)
+
+# Obtener las coordenadas de los vectores (las variables)
+var_coords <- pca_res$rotation[, 1:2]  # Coordenadas de las variables en los dos primeros PCs
+var_names <- rownames(var_coords)  # Nombres de las variables
+
+# Escalar las coordenadas de los vectores (para reducir la longitud de los vectores)
+scale_factor <- 0.6  # Ajustar este factor para reducir más o menos el tamaño de los vectores
+var_coords_scaled <- var_coords * scale_factor
+
+# Agregar los vectores y sus etiquetas ajustadas al gráfico de clustering
+cluster_hkmean20 <- cluster_hkmean20 +
+  geom_segment(data = as.data.frame(var_coords_scaled), 
+               aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(length = unit(0.2, "cm")), color = "blue") +
+  geom_text_repel(data = as.data.frame(var_coords_scaled), 
+                  aes(x = PC1, y = PC2, label = var_names), 
+                  color = "blue", 
+                  size = 3,          # Tamaño de las etiquetas de los vectores
+                  box.padding = 0.35, # Aumentar separación entre etiquetas
+                  point.padding = 0.3, 
+                  segment.size = 0.2)
+
+# Mostrar el gráfico con los vectores ajustados
+print(cluster_hkmean20)
+
+# 
+# 
+# # Guardar el subconjunto como CSV
+# # write.csv(matint_19_ind[, top_actual], "matint_19_top5.csv", row.names = TRUE) # OJO CORREGIR UBICACION
